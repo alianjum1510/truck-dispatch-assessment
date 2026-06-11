@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel Saver Route Planner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --panel-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --border: rgba(226, 232, 240, 0.8);
+            --success: #10b981;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #e2e8f0;
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #app-sidebar {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            bottom: 24px;
+            width: 420px;
+            background-color: var(--panel-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.15), 0 0 20px rgba(99, 102, 241, 0.05);
+            z-index: 1000;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .top-header {
+            padding: 32px 28px 24px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0));
+        }
+
+        h1 {
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        p.desc-text {
+            margin: 0;
+            font-size: 15px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .input-section {
+            padding: 24px 28px;
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(248, 250, 252, 0.4);
+        }
+
+        .field-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        input {
+            width: 100%;
+            padding: 16px;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 15px;
+            font-weight: 500;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 18px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 8px;
+            box-shadow: 0 8px 20px -6px rgba(99, 102, 241, 0.5);
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(99, 102, 241, 0.6);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            color: #ffffff;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .output-area {
+            padding: 24px 28px;
+            overflow-y: auto;
+            flex-grow: 1;
+            background-color: #ffffff;
+        }
+
+        .stats-box {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .stat-block {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--success);
+            letter-spacing: -0.5px;
+        }
+
+        .stat-title {
+            font-size: 13px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 8px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .station-item {
+            background-color: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .station-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: var(--accent);
+            border-radius: 4px 0 0 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .station-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(0,0,0,0.08);
+            border-color: #cbd5e1;
+        }
+        
+        .station-item:hover::before {
+            opacity: 1;
+        }
+
+        .station-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .station-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text-main);
+        }
+
+        .station-rate {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 16px;
+            background: rgba(99, 102, 241, 0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .station-info {
+            font-size: 14px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .loader-wrapper {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px;
+            display: none;
+            background-color: #ffffff;
+            flex-grow: 1;
+        }
+        
+        .alert-box {
+            color: #ef4444;
+            background-color: #fef2f2;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 24px;
+            display: none;
+            border: 1px solid #fecaca;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background-color: #ffffff;
+            color: var(--text-main);
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
+        }
+        .leaflet-popup-tip {
+            background-color: #ffffff;
+        }
+        .pop-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            color: var(--text-main);
+        }
+        .pop-row {
+            font-size: 14px;
+            margin: 6px 0;
+            color: var(--text-muted);
+        }
+        .pop-hl {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-sidebar">
+        <div class="top-header">
+            <h1>Fuel Saver Route Planner</h1>
+            <p class="desc-text">Discover the cheapest gas stations along your route to minimize travel expenses.</p>
+        </div>
+
+        <div class="input-section">
+            <div class="alert-box" id="errorAlert"></div>
+            <div class="field-group">
+                <label for="originInput">Origin Location</label>
+                <input type="text" id="originInput" placeholder="e.g. New York, NY" value="New York, NY">
+            </div>
+            <div class="field-group">
+                <label for="destInput">Destination Location</label>
+                <input type="text" id="destInput" placeholder="e.g. Los Angeles, CA" value="Chicago, IL">
+            </div>
+            <button id="findRouteBtn" onclick="findBestRoute()">Find Optimal Path</button>
+        </div>
+
+        <div class="loader-wrapper" id="loadingSpinner">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2v4"></path>
+                <path d="M12 18v4"></path>
+                <path d="M4.93 4.93l2.83 2.83"></path>
+                <path d="M16.24 16.24l2.83 2.83"></path>
+                <path d="M2 12h4"></path>
+                <path d="M18 12h4"></path>
+                <path d="M4.93 19.07l2.83-2.83"></path>
+                <path d="M16.24 7.76l2.83-2.83"></path>
+            </svg>
+            <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+            <div style="margin-top: 10px; font-weight: 500;">Analyzing routes and fuel prices...</div>
+        </div>
+
+        <div class="output-area" id="outputSection" style="display: none;">
+            <div class="stats-box">
+                <div class="stat-block">
+                    <div class="stat-number" id="valExpense">$0.00</div>
+                    <div class="stat-title">Estimated Cost</div>
+                </div>
+                <div class="stat-block">
+                    <div class="stat-number" id="valDistance">0 mi</div>
+                    <div class="stat-title">Total Distance</div>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 0; margin-bottom: 18px; font-size: 15px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Recommended Stops</h3>
+            <div id="stationContainer"></div>
+        </div>
+    </div>
+
+    <div id="map-container"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize Map
+        const mapObj = L.map('map-container', { zoomControl: false }).setView([39.8283, -98.5795], 4); 
+        L.control.zoom({ position: 'topright' }).addTo(mapObj);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(mapObj);
+
+        let currentPathLayer = null;
+        let stationPins = [];
+
+        async function findBestRoute() {
+            const originVal = document.getElementById('originInput').value;
+            const destVal = document.getElementById('destInput').value;
+            const actionBtn = document.getElementById('findRouteBtn');
+            const spinner = document.getElementById('loadingSpinner');
+            const outSection = document.getElementById('outputSection');
+            const alertBox = document.getElementById('errorAlert');
+
+            if (!originVal || !destVal) return;
+
+            actionBtn.disabled = true;
+            spinner.style.display = 'block';
+            outSection.style.display = 'none';
+            alertBox.style.display = 'none';
+
+            if (currentPathLayer) mapObj.removeLayer(currentPathLayer);
+            stationPins.forEach(pin => mapObj.removeLayer(pin));
+            stationPins = [];
+
+            try {
+                const responseObj = await fetch('/api/calculate-path/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ origin: originVal, destination: destVal })
+                });
+
+                const payload = await responseObj.json();
+
+                if (!responseObj.ok) {
+                    throw new Error(payload.error || 'Failed to calculate path');
+                }
+
+                document.getElementById('valExpense').innerText = '$' + payload.overall_expense.toFixed(2);
+                document.getElementById('valDistance').innerText = payload.dist_miles.toFixed(0) + ' mi';
+
+                const containerElem = document.getElementById('stationContainer');
+                containerElem.innerHTML = '';
+
+                payload.chosen_stations.forEach((station, idx) => {
+                    const block = document.createElement('div');
+                    block.className = 'station-item';
+                    block.innerHTML = `
+                        <div class="station-top">
+                            <span class="station-title">${idx + 1}. ${station.name}</span>
+                            <span class="station-rate">$${station.price.toFixed(3)}/gal</span>
+                        </div>
+                        <div class="station-info">
+                            <span>${station.city}, ${station.state}</span>
+                            <span style="color: var(--success); font-weight: 600;">+${station.gallons.toFixed(1)} gal ($${station.cost.toFixed(2)})</span>
+                        </div>
+                    `;
+                    block.onclick = () => {
+                        mapObj.flyTo([station.lat, station.lon], 13);
+                    };
+                    containerElem.appendChild(block);
+
+                    const mapPin = L.circleMarker([station.lat, station.lon], {
+                        color: '#ed8936',
+                        fillColor: '#ed8936',
+                        fillOpacity: 0.9,
+                        radius: 8,
+                        weight: 2
+                    }).addTo(mapObj);
+
+                    const pinHTML = `
+                        <div class="pop-title">${station.name}</div>
+                        <div class="pop-row">Rate: <span class="pop-hl">$${station.price.toFixed(3)}</span></div>
+                        <div class="pop-row">Fill up: <span class="pop-hl">${station.gallons.toFixed(1)} gal</span></div>
+                        <div class="pop-row">Total: <span class="pop-hl">$${station.cost.toFixed(2)}</span></div>
+                    `;
+                    mapPin.bindPopup(pinHTML);
+                    stationPins.push(mapPin);
+                });
+
+                currentPathLayer = L.geoJSON(payload.route, {
+                    style: {
+                        color: '#48bb78',
+                        weight: 5,
+                        opacity: 0.85
+                    }
+                }).addTo(mapObj);
+
+                mapObj.fitBounds(currentPathLayer.getBounds(), { padding: [40, 40] });
+
+                outSection.style.display = 'block';
+
+            } catch (err) {
+                alertBox.innerText = err.message;
+                alertBox.style.display = 'block';
+            } finally {
+                actionBtn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
